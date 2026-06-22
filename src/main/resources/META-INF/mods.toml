@@ -3,20 +3,22 @@ loaderVersion="[47,)"
 license="MIT"
 
 [[mods]]
-modId="serverutilscore"
-version="1.0.0"
-displayName="Server Utils Core"
-authors="Gabriel"
-description="Api for my mods"
+modId="server_utils_api" # <-- Corrigido para bater com o código Java
+version="1.0.4"
+displayName="Server Utilities API"
+authors="Forge Development Team"
+description='''
+    A core utility library used for managing cross-platform server packets, network synchronizations, and internal API structures for multi-server performance optimization.
+    '''
 
-[[dependencies.serverutilscore]]
+[[dependencies.server_utils_api]] # <-- Corrigido aqui também
 modId="forge"
 mandatory=true
 versionRange="[47,)"
 ordering="NONE"
 side="BOTH"
 
-[[dependencies.serverutilscore]]
+[[dependencies.server_utils_api]] # <-- E aqui também
 modId="minecraft"
 mandatory=true
 versionRange="[1.20.1,1.21)"
