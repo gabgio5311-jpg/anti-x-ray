@@ -1,40 +1,67 @@
 package com.api.serverutils;
 
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.repository.Pack;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.forgespi.language.IModInfo;
+import com.api.serverutils.network.HistoryRequestPacket;
+import com.mojang.blaze3d.platform.InputConstants;
 
-@Mod.EventBusSubscriber(modid = ServerUtilsCore.MOD_ID, value = Dist.CLIENT)
 public class ClientCheatDetector {
 
     private static int contadorTicks = 0;
     private static boolean jaDetectou = false;
 
-    // Esse evento roda 20 vezes por segundo no cliente de forma nativa e segura
-    @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
-        if (jaDetectou) return; // Se já mandou o alerta pro server, para de checar
+    // 1. CRIANDO A TECLA 'H'
+    public static final KeyMapping ABRIR_HISTORICO_KEY = new KeyMapping(
+            "Abrir Histórico Anti-Cheat",
+            InputConstants.KEY_H,
+            "key.categories.misc"
+    );
 
-        contadorTicks++;
-        // 100 ticks = 5 segundos. Ele vai checar o PC do jogador a cada 5 segundos.
-        if (contadorTicks >= 100) {
-            contadorTicks = 0;
+    // Evento que escuta o Tick do Cliente (Barramento FORGE padrão)
+    @Mod.EventBusSubscriber(modid = ServerUtilsCore.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    public static class ForgeClientEvents {
 
-            Minecraft mc = Minecraft.getInstance();
+        @SubscribeEvent
+        public static void onClientTick(TickEvent.ClientTickEvent event) {
+            if (event.phase != TickEvent.Phase.END) return;
 
-            // Se o jogador estiver no Singleplayer ou abriu pra LAN local, ignora e não checa nada
-            if (mc.level == null || mc.isLocalServer()) {
-                return;
+            // --- ESCUTA O CLIQUE DA TECLA H (Fica antes da trava do cheat!) ---
+            while (ABRIR_HISTORICO_KEY.consumeClick()) {
+                if (Minecraft.getInstance().player != null) {
+                    // Pede o histórico para o servidor dedicado
+                    ModNetwork.CHANNEL.sendToServer(new HistoryRequestPacket());
+                }
             }
 
-            // Se ele estiver em um servidor online de fato, roda a checagem
-            verificarCliente();
+            if (jaDetectou) return; // Trava do cheat só afeta o loop abaixo
+
+            contadorTicks++;
+            if (contadorTicks >= 100) { // A cada 5 segundos
+                contadorTicks = 0;
+
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.level == null || mc.isLocalServer()) {
+                    return;
+                }
+                verificarCliente();
+            }
+        }
+    }
+
+    // 2. REGISTRANDO A TECLA NO EVENTO DE INICIALIZAÇÃO (Barramento MOD essencial)
+    @Mod.EventBusSubscriber(modid = ServerUtilsCore.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
+    public static class ModClientEvents {
+        @SubscribeEvent
+        public static void onKeyRegister(RegisterKeyMappingsEvent event) {
+            event.register(ABRIR_HISTORICO_KEY);
         }
     }
 
@@ -42,7 +69,7 @@ public class ClientCheatDetector {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getResourcePackRepository() == null) return;
 
-        // 1. Checa as texturas ativas (se ele ativar o X-ray no meio da partida, pega aqui)
+        // Checa as texturas ativas
         for (Pack pack : mc.getResourcePackRepository().getSelectedPacks()) {
             String id = pack.getId().toLowerCase();
             String titulo = pack.getTitle().getString().toLowerCase();
@@ -54,11 +81,11 @@ public class ClientCheatDetector {
             }
         }
 
-        // 2. Checa os mods carregados
+        // Checa os mods carregados
         for (IModInfo mod : ModList.get().getMods()) {
             String modId = mod.getModId().toLowerCase();
 
-            if (modId.contains("xray") || modId.contains("wurst") ||modId.contains("cheatutils")|| modId.contains("meteor") || modId.contains("inertiaclient")) {
+            if (modId.contains("xray") || modId.contains("wurst") || modId.contains("cheatutils") || modId.contains("meteor") || modId.contains("inertiaclient")) {
                 ModNetwork.CHANNEL.sendToServer(new AlertPacket("Mod Cheat", mod.getDisplayName()));
                 jaDetectou = true;
                 return;
