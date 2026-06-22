@@ -9,7 +9,8 @@ version = '1.0.0'
 group = 'com.api.serverutils'
 
 base {
-    archivesBaseName = 'serverutilscore'
+    archivesBaseName = 'server-utils-api-forge'
+    version = '1.0.4'
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
