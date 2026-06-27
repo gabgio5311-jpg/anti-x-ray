@@ -69,6 +69,19 @@ public class ClientCheatDetector {
     private static final String[] PALAVRAS_RESOURCE_PACK = {"xray", "x-ray"};
     private static final String[] PALAVRAS_MOD = {"xray", "x-ray", "wurst", "cheatutils", "meteor", "inertiaclient"};
 
+    // Marcadores de mods/packs de PROTEÇÃO (não são cheat).
+    // Sem isto, o próprio anti-cheat (ex.: "anti-x-ray.jar") casava com a palavra "x-ray"
+    // e TODOS os jogadores se autodetectavam -> servidor inteiro tomava kick.
+    private static final String[] MARCADORES_SEGUROS = {"anti", "blocker", "detector", "guard"};
+
+    // Verifica se um nome de arquivo é de um mod de proteção (deve ser IGNORADO na varredura).
+    private static boolean ehArquivoDeProtecao(String nomeMinusculo) {
+        for (String marcador : MARCADORES_SEGUROS) {
+            if (nomeMinusculo.contains(marcador)) return true;
+        }
+        return false;
+    }
+
     // Lógica interna que valida e limpa o estado
     private static void verificarCliente() {
         Minecraft mc = Minecraft.getInstance();
@@ -101,6 +114,10 @@ public class ClientCheatDetector {
         if (tipoDetectado == null) {
             for (IModInfo mod : ModList.get().getMods()) {
                 String modId = mod.getModId().toLowerCase();
+
+                // Nunca detecta o próprio anti-cheat nem mods de proteção.
+                if (modId.equals(ServerUtilsCore.MOD_ID) || ehArquivoDeProtecao(modId)) continue;
+
                 for (String palavra : PALAVRAS_MOD) {
                     if (modId.contains(palavra)) {
                         tipoDetectado = "Mod Cheat (carregado na memoria)";
@@ -142,6 +159,11 @@ public class ClientCheatDetector {
 
         for (File arquivo : arquivos) {
             String nome = arquivo.getName().toLowerCase();
+
+            // Ignora mods/packs de proteção (anti-x-ray, xray-blocker, etc.),
+            // incluindo o próprio anti-cheat. Evita a autodetecção que kickava o servidor inteiro.
+            if (ehArquivoDeProtecao(nome)) continue;
+
             for (String palavra : palavrasChave) {
                 if (nome.contains(palavra)) {
                     return arquivo.getName();
